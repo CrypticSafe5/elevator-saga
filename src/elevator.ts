@@ -109,7 +109,7 @@ export const game: Game = {
 	floors: [],
 	floorRequests: [],
 	onElevatorIdle: function (index) {
-		if (this.elevators.length === 0) {
+		if (this.elevators === undefined) {
 			return;
 		}
 		const [nextFloor] = this.floorRequests.sort((a, b) => {
@@ -120,8 +120,14 @@ export const game: Game = {
 		this.elevators[index].goToFloor(nextFloor);
 	},
 	onElevatorFloorButtonPressed: function (index, floorNumber) {
-		this.elevators[index].goToFloor(floorNumber);
-		this.floorRequests.filter((e) => e !== floorNumber);
+		const newQueue = Array
+			.from(new Set([...this.elevators[index].destinationQueue, floorNumber]))
+			.sort((a, b) => {
+				const aPrime = Math.abs(this.elevators[index].currentFloor() - a);
+				const bPrime = Math.abs(this.elevators[index].currentFloor() - b);
+				return (aPrime > bPrime) ? 1 : -1;
+			});
+		this.elevators[index].destinationQueue = newQueue;
 	},
 	onElevatorPassingFloor: function (index, floorNumber, direction) {},
 	onElevatorStoppedAtFloor: function (index, floorNumber) {},
@@ -129,6 +135,8 @@ export const game: Game = {
 		this.floorRequests.push(floorNumber);
 	},
 	init: function (elevators, floors) {
+		this.update();
+
 		for (const index in floors) {
 			floors[index].on('down_button_pressed', () => this.onFloorRequest(index));
 			floors[index].on('up_button_pressed', () => this.onFloorRequest(index));
@@ -141,7 +149,7 @@ export const game: Game = {
 			elevators[index].on('stopped_at_floor', (floorNumber) => this.onElevatorStoppedAtFloor(index, floorNumber));
 		}
 	},
-	update: function (dt, elevators, floors) {
+	update: function (_dt, elevators, floors) {
 		this.elevators = elevators;
 		this.floors = floors;
 	}
