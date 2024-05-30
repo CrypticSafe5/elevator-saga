@@ -1,0 +1,19 @@
+{
+  "name": "elevator-saga",
+  "version": "1.0.0",
+  "description": "Typescript solution to the elevator saga game",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [
+    "game",
+    "elevator",
+    "saga"
+  ],
+  "author": "CrypticSafe5",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
