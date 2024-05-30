@@ -12,10 +12,15 @@ type Floor = {
 	on: (event: FloorEvent, cb: () => void) => void;
 };
 
-type ElevatorEvent = ((event: 'idle', cb: () => void) => void)
-	| ((event: 'floor_button_pressed', cb: (floorNumber: number) => void) => void)
-	| ((event: 'passing_floor', cb: (floorNumber: number, direction: Direction) => void) => void)
-	| ((event: 'stopped_at_floor', cb: (floorNumber: number) => void) => void);
+// Elevator events and callbacks
+type IdleCb = (elevator: number, ) => void;
+type FloorButtonPressedCb = (elevator: number, floorNumber: number) => void;
+type PassingFloorCb = (elevator: number, floorNumber: number, direction: Omit<Direction, 'stopped'>) => void;
+type StoppedAtFloorCb = (elevator: number, floorNumber: number) => void;
+type IdleEvent = (event: 'idle', cb: IdleCb) => void;
+type FloorButtonPressedEvent = (event: 'floor_button_pressed', cb: FloorButtonPressedCb) => void;
+type PassingFloorEvent = (event: 'passing_floor', cb: PassingFloorCb) => void;
+type StoppedAtFloorEvent = (event: 'stopped_at_floor', cb: StoppedAtFloorCb) => void;
 
 type Elevator = {
 	/**
@@ -73,11 +78,71 @@ type Elevator = {
 	 * Gets the currently pressed floor numbers as an array.
 	 */
 	getPressedFloors: () => number[];
-	// on: (event: ElevatorEvent, cb: () => void) => void;
-	on: ElevatorEvent;
+	on: IdleEvent
+		& FloorButtonPressedEvent
+		& PassingFloorEvent
+		& StoppedAtFloorEvent;
 };
 
-export default {
-	init: (elevatorList: Elevator[], floorList: Floor[]) => {},
-	update: (dt, elevators, floors) => {}
+type MyGame = {
+	goingUp: number;
+	goingDown: number;
+	elevators: Elevator[];
+	floors: Floor[];
+	floorRequests: number[];
+	onElevatorIdle: IdleCb;
+	onElevatorFloorButtonPressed: FloorButtonPressedCb;
+	onElevatorPassingFloor: PassingFloorCb;
+	onElevatorStoppedAtFloor: StoppedAtFloorCb;
+	onFloorRequest: (floor: number) => void;
+};
+
+type Game = {
+	init: (elevators: Elevator[], floors: Floor[]) => void;
+	update: (dt: number, elevators: Elevator[], floors: Floor[]) => void;
+} & MyGame;
+
+export const game: Game = {
+	goingUp: 0,
+	goingDown: 0,
+	elevators: [],
+	floors: [],
+	floorRequests: [],
+	onElevatorIdle: function (index) {
+		if (this.elevators.length === 0) {
+			return;
+		}
+		const [nextFloor] = this.floorRequests.sort((a, b) => {
+			const aPrime = Math.abs(this.elevators[index].currentFloor() - a);
+			const bPrime = Math.abs(this.elevators[index].currentFloor() - b);
+			return (aPrime > bPrime) ? 1 : -1;
+		});
+		this.elevators[index].goToFloor(nextFloor);
+	},
+	onElevatorFloorButtonPressed: function (index, floorNumber) {
+		this.elevators[index].goToFloor(floorNumber);
+		this.floorRequests.filter((e) => e !== floorNumber);
+	},
+	onElevatorPassingFloor: function (index, floorNumber, direction) {},
+	onElevatorStoppedAtFloor: function (index, floorNumber) {},
+	onFloorRequest: function (floorNumber) {
+		this.floorRequests.push(floorNumber);
+	},
+	init: function (elevators, floors) {
+		for (const index in floors) {
+			floors[index].on('down_button_pressed', () => this.onFloorRequest(index));
+			floors[index].on('up_button_pressed', () => this.onFloorRequest(index));
+		}
+
+		for (const index in elevators) {
+			elevators[index].on('idle', () => this.onElevatorIdle(index));
+			elevators[index].on('floor_button_pressed', (floorNumber) => this.onElevatorFloorButtonPressed(index, floorNumber));
+			elevators[index].on('passing_floor', (floorNumber, direction) => this.onElevatorPassingFloor(index, floorNumber, direction));
+			elevators[index].on('stopped_at_floor', (floorNumber) => this.onElevatorStoppedAtFloor(index, floorNumber));
+		}
+	},
+	update: function (dt, elevators, floors) {
+		this.elevators = elevators;
+		this.floors = floors;
+	}
 };
